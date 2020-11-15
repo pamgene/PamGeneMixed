@@ -1,0 +1,12 @@
+
+: ${R_HOME}
+if test -z "${R_HOME}"; then
+   R_HOME=`${R_EXE} RHOME`		
+fi
+if test -z "${R_HOME}"; then
+   R_HOME=`R RHOME`		
+fi
+if test -z "${R_HOME}"; then
+    echo "Could not determine R home directory"
+    exit 1
+fi

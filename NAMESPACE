@@ -1,0 +1,14 @@
+
+import(methods,utils, stats, Biobase)
+importFrom(graphics, plot)
+
+
+exportClasses("PamChipAllPepResults", "CleanedPeptide", "CleanedPamData", "PamChipMixed")
+
+exportMethods("show", "summary")
+
+
+export(ObservedCellProfiles,ObservedGroupProfiles,ObservedRepProfiles,PreProcessPam,VisualizePamGeneMix,PreProcessAllPeptides,PamGeneMix,AutoPamGeneMix,testVarCom,VolcanoPam)
+
+
+

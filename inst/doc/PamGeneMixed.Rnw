@@ -1,0 +1,672 @@
+%\VignetteIndexEntry{An R package for fitting Semiparametric mixed models to Kinase Activity Profiiles}
+%\VignetteDepends{PamGeneMixed}
+%\VignettePackage{PamGeneMixed}
+%\VignetteKeywords{PamGeneMixed, kinase activity profiles, Longitudinal Profiles, mixed models, thin-plate regressions, semi-parametric mixed models}
+
+\documentclass[a4paper]{article}
+\usepackage[OT1]{fontenc}
+\usepackage{Sweave}
+\usepackage{url}
+\usepackage{afterpage}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{ hmargin=3cm, vmargin=2.5cm }
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{bm}
+
+
+
+\DefineVerbatimEnvironment{Sinput}{Verbatim} {xleftmargin=2em}
+\DefineVerbatimEnvironment{Soutput}{Verbatim}{xleftmargin=2em}
+%\DefineVerbatimEnvironment{Soutput}{Verbatim}{xleftmargin=2em,
+%                                              frame=single}
+
+
+\begin{document}
+
+
+
+\title{Using the \texttt{PamGeneMixed} Package (version 1.02)}
+\author{Pushpike Thilakarathne \\ I-BioStat, \\University of Hesselt\\ Belgium}
+
+\maketitle
+
+\tableofcontents
+\pagebreak{}
+
+<<config,echo=FALSE>>=
+options(width = 80)
+options(continue=" ")
+options(prompt="R> ")
+set.seed(123)
+#setwd("C:/BuildRpackage/S4Pam/vignettes/")
+@
+
+\section{Introduction}
+
+The \texttt{PamGeneMixed} package is a suite for convenient analysis of PamChip microarray
+experiments.  The package is built based on the paper Thilakarathne et al. (2011). The package 
+currently consists of several functions which can be used to visualize and fitting the models.
+
+This document provides an overview of the analysis workflow for the paper Thilakarathne et al. (2011) 
+and usability of the functions in the package. 
+
+\section{Preparation of the Data}
+First we load the package \texttt{PamGeneMixed} and the example real-life data set 
+\texttt{PamChipData}. This particular dataset consists of an oncology
+experiment where phosphorylation of peptides is measured in 20
+different cell line lysates in the absence (control) and presence of
+a kinase inhibitor (compound) using peptide arrays with a kinetic
+read-out. Ten out of twenty cell lines are known to be responsive
+and others are non-responsive to the specific kinase inhibitor under
+study. The cell lines were randomly assigned to six 96-well plates,
+of which each well contains a 144-peptide array. Each cell line was
+typically replicated 5-6 times. (for more details see Versele et al. 2009 )
+
+
+
+
+<<loadPackage>>=
+library(PamGeneMixed)
+#packageDescription("PamGeneMixed")
+@
+
+Alternatively, simulated data sets can also be very valuable. However, we did not use simulated data.
+
+\subsection{Structure of the Data}
+<<>>=
+data(PamChipData)
+PamChipData[c(1:5,500:505),1:10]
+@
+\subsection{Unique Time Points}
+<<>>=
+UTime<-unique(PamChipData[,c("Time")])
+UTime
+@
+
+\subsection{Responsive and Non-Responsive Cell Lines}
+<<>>=
+RnRcellines<-unique(PamChipData[,c("CellName","ResState")])
+rownames(RnRcellines)<-1:20
+RnRcellines
+
+@
+
+\subsection{Number of Plates (96 well plates)}
+<<>>=
+Plates<-unique(PamChipData[,c("ArrayNum")])
+Plates
+@
+
+\subsection{Peptides Names }
+<<>>=
+PeptidesNames<-setdiff(colnames(PamChipData),
+        c("ID", "ResState", "ArrayNum", "CellName", "TreatName","Time"))
+PeptidesNames[1:10]
+@
+
+\section{Exploration of Observed Kinase Activity Profiles }
+This section describes the exploration of observed PamChipData for a specific peptide. Since analysis is done by peptide by peptide, 
+it is worthwhile to explore the behavior of the kinase activity profiles at different experimental factors. Therefore, activity 
+profiles are visualized at cell line level, replicate level and group levels.
+
+\subsection{Observed Replicate Specific-Profiles for a certain cell line of a given peptide}
+<<FigRep1, fig = FALSE, term = FALSE>>=
+ObservedRepProfiles(pepname="Pep1",DataMat=PamChipData,
+    cells="SKBR3",Trt.Group=c("Treatment","Control"),Res="R",log.true=FALSE)
+@
+
+<<FigRep1, fig = FALSE, term = FALSE, echo=FALSE>>=
+pdf("FigRep1.pdf",width=8,height=4)
+ObservedRepProfiles(pepname="Pep1",DataMat=PamChipData,
+    cells="SKBR3",Trt.Group=c("Treatment","Control"),Res="R",log.true=FALSE)
+dev.off()
+@
+
+
+
+<<FigRep2, fig = FALSE, term = FALSE>>= 
+    ObservedRepProfiles(pepname="Pep5",DataMat=PamChipData,
+    cells="DU145",Trt.Group=c("Treatment","Control"),Res="R",log.true=FALSE)
+@
+
+<<FigRep2, fig = FALSE, term = FALSE, echo=FALSE>>=
+pdf("FigRep2.pdf",width=8,height=4)
+ObservedRepProfiles(pepname="Pep5",DataMat=PamChipData,
+    cells="DU145",Trt.Group=c("Treatment","Control"),Res="R",log.true=FALSE)
+dev.off()
+@
+
+
+
+<<FigRep3,fig = FALSE, term = FALSE>>=     
+    ObservedRepProfiles(pepname="Pep130",DataMat=PamChipData,
+    cells="SUM159",Trt.Group="Treatment",Res="R",log.true=TRUE)
+@
+
+<<FigRep3, fig = FALSE, term = FALSE, echo=FALSE>>=
+pdf("FigRep3.pdf",width=8,height=4)
+    ObservedRepProfiles(pepname="Pep130",DataMat=PamChipData,
+    cells="SUM159",Trt.Group=c("Treatment","Control"),Res="R",log.true=TRUE)
+dev.off()
+@
+
+
+
+\begin{figure}[ht]
+\begin{center}
+\begin{tabular}{c}
+  \includegraphics[width=0.9\textwidth]{FigRep1} \\
+  \includegraphics[width=0.9\textwidth]{FigRep2} 
+\end{tabular}
+\caption{Replicate specific profiles for a cell line and for a peptide }
+\end{center}
+\end{figure}
+
+
+
+\begin{figure}[ht]
+\begin{center}
+\begin{tabular}{c}
+ \includegraphics[width=0.9\textwidth]{FigRep3}
+\end{tabular}
+\caption{$\log_{2}$ transformed replicate specific profiles for a cell line and for a peptide }
+\end{center}
+\end{figure}
+
+\afterpage{\clearpage}
+\pagebreak{}
+
+
+
+
+
+
+\subsection{Observed Cell Line Specific-Profiles for a certain cell line of a given peptide}
+
+<<Figcel1,fig = FALSE, term = FALSE>>=  
+ObservedCellProfiles(pepname="Pep130",DataMat=PamChipData,
+Trt.Group=c("Treatment","Control"),Res=c("R","NR"),log.true=TRUE)
+@
+ 
+<<Figcel1, fig = FALSE, term = FALSE, echo=FALSE>>=
+pdf("Figcel1.pdf",width=8,height=8)
+ObservedCellProfiles(pepname="Pep130",DataMat=PamChipData,
+Trt.Group=c("Treatment","Control"),Res=c("R","NR"),log.true=TRUE)
+dev.off()
+@
+
+
+        
+\begin{figure}[ht]
+\begin{center}
+  \includegraphics[width=0.8\textwidth]{Figcel1} 
+\caption{Observed Cell Line Specific-Profiles for a peptide and $\log_{2}$ transformed signals. }
+\end{center}
+\end{figure}
+ 
+
+\subsection{Observed Group Specific-Profiles for a certain cell line of a given peptide}
+
+<<FigGroup1,fig = FALSE, term = FALSE>>=  
+ObservedGroupProfiles(pepname="Pep58",DataMat=PamChipData,
+Trt.Group=c("Treatment","Control"),Res=c("R","NR"),log.true=TRUE)
+@
+
+<<FigGroup1, fig = FALSE, term = FALSE, echo=FALSE>>= 
+pdf("FigGroup1.pdf",width=8,height=8)
+ObservedGroupProfiles(pepname="Pep58",DataMat=PamChipData,
+Trt.Group=c("Treatment","Control"),Res=c("R","NR"),log.true=TRUE)
+dev.off()
+@
+
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[width=0.8\textwidth]{FigGroup1} 
+\caption{Observed Group Specific-Profiles for a peptide and $\log_{2}$ transformed signals. 
+Gray colour lines indicate observed replicate specific  profiles. }
+\end{center}
+\end{figure}
+%        
+
+
+
+\afterpage{\clearpage}
+\pagebreak{}
+
+\section{Cleaning Phase}
+Prior to fitting the model, we examine
+the data for unusual observations and extreme profiles. Outlier
+removal has been done in three steps. First, we notice that some
+of the observations are negative for a given kinase activity profile.
+The PamChip software reports background corrected intensities.
+Hence, negative observations might occur when the measured
+intensity for a particular peptide in a certain well does not exceed the
+background signal. Negative intensity measurements are replaced
+by half of the positive minimum intensity measurement of that
+profile. Second, we compute the area under the curve (AUC) for
+each profile of a given cell line. Analysis of variance has been carried
+out based on those AUC values while taking the treatment as covariate
+with two levels. Extreme profiles whose residuals are beyond
+$\pm 2 \times $ the square root of the mean squared error are removed. Third,
+we look at the observations within a profile and remove the extreme
+observations if they differ more than $\pm 2 \times $ standard deviations of the
+profile-specific mean. In this step, we are able to remove extremely
+high intensity measurements (spikes). All these steps are repeated
+for each peptide and each cell line.
+
+
+
+
+The following function creates a S4 class objects as output results and can be 
+used to remove the outline profiles and extreme observations. 
+<<CellCleaned1, fig = FALSE, term = FALSE>>=
+PreProcessPam(p   =1, cel =11,   d   =2, PamS=PamChipData, plotting=T )
+@
+
+<<CellCleaned1, fig = FALSE, term = FALSE, echo=FALSE>>=
+pdf("CellCleaned1.pdf",width=8,height=4)
+PreProcessPam(p   =1, cel =11,   d   =2, PamS=PamChipData, plotting=T )
+dev.off()
+@
+
+
+<<CellCleaned2, fig = FALSE, term = FALSE>>=
+PreProcessPam(p   =6, cel =4,   d   =2, PamS=PamChipData, plotting=T )
+@
+<<CellCleaned2, fig = FALSE, term = FALSE, echo=FALSE>>=
+pdf("CellCleaned2.pdf",width=8,height=4)
+PreProcessPam(p   =6, cel =4,   d   =2, PamS=PamChipData, plotting=T )
+dev.off()
+@
+
+
+\begin{figure}[ht]
+\begin{center}
+\begin{tabular}{c}
+  \includegraphics[width=0.8\textwidth]{CellCleaned1} \\
+  \includegraphics[width=0.8\textwidth]{CellCleaned2} 
+\end{tabular}
+\caption{Cell line specific data cleaning phase. }
+\end{center}
+\end{figure}
+
+
+
+Following R code chunk can be used to continuously visualize the pre-processing.
+<<eval=FALSE>>=
+for (i in 1:148){
+    for (cc in 1:20){
+        par(ask=T)
+        PreProcessPam(p   =i, cel =cc,   d   =2, PamS=PamChipData, plotting=T )
+    }
+}
+@
+
+
+
+This process can be automated using the following function. In this particular example, 
+five peptides are preprocessed sequentially. 
+
+<<>>=
+PeptidesNames<-setdiff(colnames(PamChipData),
+c("ID", "ResState", "ArrayNum", "CellName", "TreatName","Time"))
+
+PreProcessAllPeptides(pep.names=PeptidesNames[1:5],PamSig=PamChipData)
+@
+ 
+
+
+
+\afterpage{\clearpage}
+\pagebreak{}
+\section{Modeling Kinase Activity Profiles }
+
+
+\subsection{Modeling Responsive Cell Line Data only}
+In this section, we use only Responsive cell line data such that we have only two groups: 
+treatment and control for the analysis. 
+
+\subsubsection{Model 1: }
+In this particular model, the cell line-specific random intercept is
+considered to capture correlation of the intensity measurement over time
+within the cell line. We assumed cell line-specific random slopes for
+linear as well as for quadratic time effects to capture different evolution
+of kinase activity over time. Moreover, we allow these cell lines-specific
+random structures to be different for each group. We assumed group-specific
+random structure for cell lines.
+
+<<>>=
+data(TestPepModelData)
+head(TestPepModelData)
+
+PTx<-TestPepModelData
+
+# log2 transform the response 
+PTx$y<-log2(PTx[,c("Peptide")]) 
+
+PTx<-PTx[PTx[,c("ResState")]=="R",]
+
+n.groups<-length(unique(PTx[,c("ResState")]))*length(unique(PTx[,c("TreatName")]))
+#n.groups
+
+xhlp<-lm(y~-1+TreatName,data=PTx,x=TRUE)$x
+for (i in 1:n.groups) PTx$ResTrt[xhlp[,i]==1]<-i
+PTx$ResTrt<-as.factor(PTx$ResTrt)
+levels(PTx$ResTrt)<-colnames(xhlp)
+
+
+#unique cell lines
+cellLines<-levels(PTx$CellName)
+PTx$ResState<-as.factor(PTx$ResState)
+
+# create interaction between Treatment and cell lines
+PTx$CellLineResTrt<-0
+xhlp<-lm(y~-1+CellName:TreatName,data=PTx,x=TRUE)$x
+ncols<-ncol(xhlp)
+for (i in 1:ncols) PTx$CellLineResTrt[xhlp[,i]==1]<-i
+PTx$CellLineResTrt<-as.factor(PTx$CellLineResTrt)
+levels(PTx$CellLineResTrt)<-colnames(xhlp)
+
+
+M1gamm<-PamGeneMix(formula=y~-1+ResTrt+s(time,by=ResTrt,bs="tp",m=3),
+        PTx=PTx,Random.structure=list(ArrayNum=~1,
+        CellLineResTrt=~1+time+time2,ID=~1+time+time2),
+        Control.list=list(maxIter=200, msMaxIter=250 ,msMaxEval=1000,apVar=TRUE))
+@
+
+We can now visualize the results using function VisualizePamGeneMix.
+
+<<echo=FALSE>>=
+#save(M1gamm,file="D:\\Projects\\PamGene\\RpamChip\\Rscripts\\M1gamm.RData")
+#load("data/M1gamm.RData")
+@
+
+
+<<term = FALSE,fig=FALSE>>=
+VisualizePamGeneMix(M1gamm,plot.type="smooth.fit")
+
+VisualizePamGeneMix(M1gamm,plot.type="cellline")
+
+VisualizePamGeneMix(M1gamm, plot.type="SubSpeVelocity")
+
+VisualizePamGeneMix(M1gamm,plot.type="replicate",name.cell= "A431" )
+
+VisualizePamGeneMix(M1gamm,plot.type="velocity")
+
+VisualizePamGeneMix(M1gamm,plot.type="velocityCI")
+@
+
+
+<<term = FALSE,fig=FALSE,echo=FALSE>>=
+pdf("Smooth.pdf",width=8,height=4)
+VisualizePamGeneMix(M1gamm,plot.type="smooth.fit")
+dev.off()
+
+pdf("cellline.pdf",width=8,height=4)
+VisualizePamGeneMix(M1gamm,plot.type="cellline")
+dev.off()
+
+pdf("SubSpeVelocity.pdf",width=8,height=4)
+VisualizePamGeneMix(M1gamm, plot.type="SubSpeVelocity")
+dev.off()
+
+pdf("replicate.pdf",width=8,height=4)
+VisualizePamGeneMix(M1gamm,plot.type="replicate",name.cell= "A431" )
+dev.off()
+
+pdf("velocity.pdf",width=8,height=4)
+VisualizePamGeneMix(M1gamm,plot.type="velocity")
+dev.off()
+
+pdf("velocityCI.pdf",width=8,height=4)
+VisualizePamGeneMix(M1gamm,plot.type="velocityCI")
+dev.off()
+@
+
+\begin{figure}[ht]
+\begin{center}
+\begin{tabular}{c}
+  \includegraphics[width=0.8\textwidth]{Smooth} \\
+  \includegraphics[width=0.8\textwidth]{cellline} 
+\end{tabular}
+\caption{First row: Fitted smoothing curves. Second row: Fitted cell line specific profiles. }
+\end{center}
+\end{figure}
+
+\begin{figure}[ht]
+\begin{center}
+\begin{tabular}{c}
+  \includegraphics[width=0.8\textwidth]{SubSpeVelocity} \\
+  \includegraphics[width=0.8\textwidth]{replicate} 
+\end{tabular}
+\caption{First row: Fitted subject specific velocity  curves. Second row: Fitted replicate specific smoothing curves. }
+\end{center}
+\end{figure}
+
+
+\begin{figure}[ht]
+\begin{center}
+\begin{tabular}{c}
+  \includegraphics[width=0.8\textwidth]{velocity} \\
+  \includegraphics[width=0.8\textwidth]{velocityCI} 
+\end{tabular}
+\caption{First row: Fitted group specific velocity  curves. Second row: Fitted velocity curves with $95\%$ CI. }
+\end{center}
+\end{figure}
+
+
+\afterpage{\clearpage}
+\pagebreak{}
+Summarizing the model fit. 
+
+<<eval=FALSE>>=
+summary(M1gamm)
+@
+
+
+\subsubsection{Model 2: }
+In this particular model is more or less the same as M1.  However, 
+correlation structure for the random effects are now common for treatment and control groups.
+<<eval=FALSE>>=
+M2gamm<-PamGeneMix(formula=y~-1+ResTrt+s(time,by=ResTrt,bs="tp",m=3),
+        PTx=PTx,Random.structure=list(ArrayNum=~1,
+        CellName=~1+time+time2,ID=~1+time+time2),
+        Control.list=list(maxIter=200, msMaxIter=250 ,msMaxEval=1000,apVar=TRUE))
+@
+
+
+
+\subsection{Modeling four groups: Treatment and Responsive statuses}
+In this section we demonstrate how to use entire dataset (four groups) to 
+fit the model while incorporating different correlation structures.
+
+<<eval=FALSE>>=
+#-----------:  ------------------
+data(TestPepModelData)
+
+
+PTx<-TestPepModelData
+
+
+# log2 transform the response 
+PTx$y<-log2(PTx[,c("Peptide")]) 
+
+
+# we now create interaction between ResState and Treatment as follows.
+
+n.groups<-length(unique(PTx[,c("ResState")]))*length(unique(PTx[,c("TreatName")]))
+PTx$ResTrt<-0
+xhlp<-lm(y~-1+ResState:TreatName,data=PTx,x=TRUE)$x
+for (i in 1:n.groups) PTx$ResTrt[xhlp[,i]==1]<-i
+PTx$ResTrt<-as.factor(PTx$ResTrt)
+levels(PTx$ResTrt)<-colnames(xhlp)
+
+#unique cell lines
+cellLines<-levels(PTx$CellName)
+PTx$ResState<-as.factor(PTx$ResState)
+
+# create interaction between Treatment and cell lines
+PTx$CellLineResTrt<-0
+xhlp<-lm(y~-1+CellName:TreatName,data=PTx,x=TRUE)$x
+ncols<-ncol(xhlp)
+for (i in 1:ncols) PTx$CellLineResTrt[xhlp[,i]==1]<-i
+PTx$CellLineResTrt<-as.factor(PTx$CellLineResTrt)
+levels(PTx$CellLineResTrt)<-colnames(xhlp)
+@
+
+
+
+
+
+
+
+
+
+
+\subsubsection{Model 3}
+The more complex model for which we assumed that group-specific smoothing parameter and 
+group-specific variance covariance structure. we used thin plate regression splines with third 
+order derivative. In this model nested random effects structure is assumed for replicates within
+the cell lines. And for the cell lines - specific random effects are assumed to be realized 
+from each group separately.
+
+<<eval=FALSE>>=
+system.time(
+M3gamm<-PamGeneMix(formula=y~-1+ResTrt+s(time,by=ResTrt,bs="tp",m=3),
+        Weights=varIdent(form=~1|ResTrt) ,
+        PTx=PTx,Random.structure=list(ArrayNum=~1,
+        CellLineResTrt=~1+time+time2,ID=~1+time+time2),
+        Control.list=list(maxIter=200, msMaxIter=250 ,msMaxEval=1000,apVar=TRUE))
+)
+
+
+M3gamm
+@
+
+<<echo=FALSE>>=
+#save(M3gamm,file="D:\\Projects\\PamGene\\RpamChip\\Rscripts\\M3gamm.RData")
+#load("data/M3gamm.RData")
+@
+
+
+\afterpage{\clearpage}
+\pagebreak{}
+We can now visualize the results using function VisualizePamGeneMix.
+
+
+<<smoothM3,fig = FALSE, term = FALSE,eval=FALSE>>=
+VisualizePamGeneMix(M3gamm,plot.type="smooth.fit")
+@
+
+
+<<velocityCIM3,fig = FALSE, term = FALSE,eval=FALSE>>=
+VisualizePamGeneMix(M3gamm,plot.type="velocityCI")
+@
+
+
+
+\afterpage{\clearpage}
+\pagebreak{}
+
+
+we can now use testVarCom function to test the hypothesis that 
+$H_{0}$: $Var(group_{R,i}) - Var(group_{R,j}) = 0$ and  
+$Var(group_{NR,i}) - Var(group_{NR,j}) = 0$. 
+That is testing whether there is a difference between treatment and
+control conditional on the responsive statues. 
+
+
+<<eval=FALSE>>=
+testVarCom(M3gamm)  
+@
+
+
+\section{Automated way of fitting model to each peptide for treatment and controls groups}
+
+\subsection{Group-specific velocities are compared at Initial time point, End time point and for entire profile}
+<<eval=FALSE>>=
+    data(PamChipData)
+    
+    PeptidesNames<-setdiff(colnames(PamChipData),
+    c("ID", "ResState", "ArrayNum", "CellName", "TreatName","Time"))
+    
+    #------- only two groups in the data -------------------
+    temp1<-PreProcessAllPeptides(pep.names=PeptidesNames[1:20],
+    PamSig=PamChipData[PamChipData[,c("ResState")]=="R",],PathOutPut="C:/Temp")
+    temp1
+    
+    #-----------------------------------
+    Results1<-AutoPamGeneMix(formula=y~-1+ResTrt+s(time,by=ResTrt,bs="tp",m=3),
+            Weights=varIdent(form=~1),
+            Random.structure=list(ArrayNum=~1,
+            CellLineResTrt=~1+time+time2,ID=~1+time+time2),
+            temp1,PathOutPut="C:/FittedGamm")
+ 
+@
+
+\subsection{Group-specific velocities are compared additionally at  half way of the time}
+
+<<eval=FALSE>>=                            
+Results2<-AutoPamGeneMix(formula=y~-1+ResTrt+s(time,by=ResTrt,bs="tp",m=3),
+          Weights=varIdent(form=~1),
+          Random.structure=list(ArrayNum=~1,
+          CellLineResTrt=~1+time+time2,ID=~1+time+time2),
+          temp1,TestAt=30,PathOutPut="C:/FittedGamm")
+@
+
+\afterpage{\clearpage}
+\pagebreak{}
+\section{Automated way of fitting model to each peptide for four groups}
+<<eval=FALSE>>=    
+#------- Four groups in the data ---
+#-Preprocessing step
+
+    temp2<-PreProcessAllPeptides(pep.names=PeptidesNames,
+    PamSig=PamChipData,PathOutPut="C:/Temp")
+    temp2
+    
+#  Fit the model for each peptide
+#  NOTE: This will take considerable time depending on your system speed.
+ResultsAll<-AutoPamGeneMix(formula=y~-1+ResTrt+s(time,by=ResTrt,bs="tp",m=3),
+             Weights=varIdent(form=~1|ResTrt),
+             Random.structure=list(ArrayNum=~1,
+            CellLineResTrt=~1+time+time2,ID=~1+time+time2),
+             temp2,TestAt=30,PathOutPut="C:/FittedGamm")
+                       
+#save(ResultsAll,file="D:\\Projects\\PamGene\\RpamChip\\Rscripts\\ResultsAll.RData")
+@
+
+
+
+\subsection{Visualize AutoPamGeneMix results}
+
+<<echo=FALSE>>=
+pathdata<-system.file("doc/data",package = "PamGeneMixed")
+load(paste(pathdata,"/ResultsAll.RData",sep=""))
+@
+
+
+<<>>=
+show(ResultsAll)
+@
+
+
+<<Volcano,fig = FALSE, term = FALSE, eval=FALSE >>=
+Results<-VolcanoPam(ResultsAll,Topp=5,plotting=TRUE)
+@
+
+<<Volcano,fig = FALSE, term = FALSE, echo=FALSE,eval=FALSE>>=
+pdf("Volcano.pdf")
+Results<-VolcanoPam(ResultsAll,Topp=5,plotting=TRUE)
+dev.off()
+@
+
+
+
+
+
+
+\end{document}
